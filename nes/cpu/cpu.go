@@ -1,4 +1,4 @@
-package nes
+package cpu
 
 import "fmt"
 
@@ -28,36 +28,36 @@ type CPU interface {
 }
 
 type cpu struct {
-	CPUState
+	State
 	Instructions
 	remainingCycles uint8
 }
 
-type CPUState struct {
+type State struct {
 	Accumulator    byte
 	RegisterX      byte
 	RegisterY      byte
 	Status         byte
 	StackPtr       byte
 	ProgramCounter uint16
-	bus
+	Bus
 }
 
-type bus interface {
+type Bus interface {
 	Read(addr uint16) byte
 	Write(addr uint16, value byte)
 }
 
-type Instructions map[byte]instruction
+type Instructions map[byte]Instruction
 
-type instruction interface {
-	Execute(*CPUState)
+type Instruction interface {
+	Execute(*State)
 	GetCycles() uint8
 }
 
-func NewCPU(b bus, i Instructions) CPU {
+func NewCPU(b Bus, i Instructions) CPU {
 	c := new(cpu)
-	c.bus = b
+	c.Bus = b
 	c.Instructions = i
 	c.Reset()
 	return c
@@ -70,10 +70,10 @@ func (c *cpu) Reset() {
 }
 
 func (c *cpu) resetState() {
-	c.CPUState = CPUState{
+	c.State = State{
 		Status:   initStatus,
 		StackPtr: initStackPtr,
-		bus:      c.bus,
+		Bus:      c.Bus,
 	}
 }
 
@@ -86,13 +86,13 @@ func (c *cpu) loadProgram() {
 func (c *cpu) Tick() {
 	if c.remainingCycles == 0 {
 		code, i := c.getInstruction()
-		i.Execute(&c.CPUState)
+		i.Execute(&c.State)
 		c.updateCycles(code, i)
 	}
 	c.remainingCycles--
 }
 
-func (c *cpu) getInstruction() (byte, instruction) {
+func (c *cpu) getInstruction() (byte, Instruction) {
 	code := c.Read(c.ProgramCounter)
 	if i, ok := c.Instructions[code]; ok {
 		return code, i
@@ -104,7 +104,7 @@ func getUnknownInstrErr(code byte) error {
 	return fmt.Errorf(unknownInstrFormat, code)
 }
 
-func (c *cpu) updateCycles(code byte, i instruction) {
+func (c *cpu) updateCycles(code byte, i Instruction) {
 	c.remainingCycles = i.GetCycles()
 	if c.remainingCycles == 0 {
 		panic(getInvalidCyclesErr(code))

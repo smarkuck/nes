@@ -1,9 +1,9 @@
-package nes_test
+package cpu_test
 
 import (
 	"fmt"
 
-	. "github.com/smarkuck/nes/nes"
+	. "github.com/smarkuck/nes/nes/cpu"
 	. "github.com/smarkuck/unittest"
 )
 
@@ -17,7 +17,6 @@ const (
 	code    = 0x07
 	cycles  = 13
 	value   = 234
-	kb      = 0x400
 
 	invalidAccumulatorText     = "invalid accumulator"
 	invalidRegisterXText       = "invalid register X"
@@ -29,18 +28,19 @@ const (
 	invalidExecCountText       = "invalid number of executions"
 	invalidErrorText           = "invalid error message"
 	invalidBusValueText        = "invalid value in bus"
-	unknownInstrFormat         = "unknown instruction code: " + HexByte
-	invalidCyclesFormat        = "encountered instruction needs " +
+
+	unknownInstrFormat  = "unknown instruction code: " + HexByte
+	invalidCyclesFormat = "encountered instruction needs " +
 		"0 cycles to execute: " + HexByte
 )
 
-type testBus [64 * kb]byte
+type testBus map[uint16]byte
 
-func (t *testBus) Read(addr uint16) byte {
+func (t testBus) Read(addr uint16) byte {
 	return t[addr]
 }
 
-func (t *testBus) Write(addr uint16, value byte) {
+func (t testBus) Write(addr uint16, value byte) {
 	t[addr] = value
 }
 
@@ -49,11 +49,11 @@ type execChecker struct {
 	execCount uint
 }
 
-func (e *execChecker) Execute(*CPUState) {
+func (e *execChecker) Execute(*State) {
 	e.execCount++
 }
 
-func (e execChecker) GetCycles() uint8 {
+func (e *execChecker) GetCycles() uint8 {
 	return e.cycles
 }
 
@@ -65,7 +65,7 @@ type addressIncrementer struct {
 	address uint16
 }
 
-func (a addressIncrementer) Execute(s *CPUState) {
+func (a addressIncrementer) Execute(s *State) {
 	v := s.Read(a.address)
 	s.Write(a.address, v+1)
 }
@@ -78,7 +78,7 @@ type stateModifier struct {
 	value byte
 }
 
-func (s stateModifier) Execute(state *CPUState) {
+func (s stateModifier) Execute(state *State) {
 	state.Accumulator = s.value
 	state.RegisterX = s.value
 	state.RegisterY = s.value
@@ -87,8 +87,8 @@ func (s stateModifier) Execute(state *CPUState) {
 	state.ProgramCounter = uint16(s.value)
 }
 
-func (s stateModifier) GetCycles() uint8 {
-	return s.value
+func (stateModifier) GetCycles() uint8 {
+	return cycles
 }
 
 func expectAccumulatorEq(t *T, cpu CPU, value byte) {
@@ -141,7 +141,7 @@ func getInvalidCyclesText(code byte) string {
 }
 
 func Test_OnNewCPU_CreateCPUWithProperState(t *T) {
-	cpu := NewCPU(new(testBus), Instructions{})
+	cpu := NewCPU(testBus{}, Instructions{})
 
 	expectRegistersEq(t, cpu, 0)
 	expectStatusEq(t, cpu, initStatus)
@@ -149,12 +149,12 @@ func Test_OnNewCPU_CreateCPUWithProperState(t *T) {
 	expectRemainingCyclesEq(t, cpu, 0)
 }
 
-type Suite struct {
-	bus *testBus
+type cpuSuite struct {
+	bus testBus
 }
 
-func (s *Suite) Setup() {
-	s.bus = new(testBus)
+func (s *cpuSuite) Setup() {
+	s.bus = testBus{}
 	s.bus[resetVector] = getLowByte(resetProgramAddr)
 	s.bus[resetVector+1] = getHighByte(resetProgramAddr)
 	s.bus[resetProgramAddr] = code
@@ -168,25 +168,26 @@ func getHighByte(value uint16) byte {
 	return byte(value >> 8)
 }
 
-func (s *Suite) newCPU(i Instructions) CPU {
+func (s cpuSuite) newCPU(i Instructions) CPU {
 	return NewCPU(s.bus, i)
 }
 
-func (s *Suite) expectBusValueEq(t *T, addr uint16, value byte) {
+func (s cpuSuite) expectBusValueEq(t *T,
+	addr uint16, value byte) {
 	ExpectEq(t, s.bus[addr], value, invalidBusValueText)
 }
 
 func Test_CPU(t *T) {
-	TestSuite(t, new(Suite))
+	TestSuite(t, new(cpuSuite))
 }
 
-func (s *Suite) OnNewCPU_LoadProgramFromResetVector(t *T) {
+func (s cpuSuite) OnNewCPU_LoadProgramFromResetVector(t *T) {
 	cpu := s.newCPU(Instructions{})
 
 	expectProgramCounterEq(t, cpu, resetProgramAddr)
 }
 
-func (s *Suite) WhenNoCyclesLeft_ExecNextInstruction(t *T) {
+func (s cpuSuite) WhenNoCyclesLeft_ExecNextInstr(t *T) {
 	checker := &execChecker{cycles: cycles}
 	cpu := s.newCPU(Instructions{code: checker})
 
@@ -196,7 +197,7 @@ func (s *Suite) WhenNoCyclesLeft_ExecNextInstruction(t *T) {
 	expectRemainingCyclesEq(t, cpu, cycles-1)
 }
 
-func (s *Suite) WhenInstructionIsUnknown_Panic(t *T) {
+func (s cpuSuite) WhenInstructionIsUnknown_Panic(t *T) {
 	cpu := s.newCPU(Instructions{})
 
 	defer ExpectPanicErrEq(t,
@@ -205,7 +206,7 @@ func (s *Suite) WhenInstructionIsUnknown_Panic(t *T) {
 	cpu.Tick()
 }
 
-func (s *Suite) WhenInstructionReturnsZeroCycles_Panic(t *T) {
+func (s cpuSuite) WhenInstrReturnsZeroCycles_Panic(t *T) {
 	c := &execChecker{cycles: 0}
 	cpu := s.newCPU(Instructions{code: c})
 
@@ -215,7 +216,7 @@ func (s *Suite) WhenInstructionReturnsZeroCycles_Panic(t *T) {
 	cpu.Tick()
 }
 
-func (s *Suite) WhenMoreThanZeroCycles_SkipCycle(t *T) {
+func (s cpuSuite) WhenMoreThanZeroCycles_SkipCycle(t *T) {
 	checker := &execChecker{cycles: cycles}
 	cpu := s.newCPU(Instructions{code: checker})
 
@@ -226,7 +227,7 @@ func (s *Suite) WhenMoreThanZeroCycles_SkipCycle(t *T) {
 	expectRemainingCyclesEq(t, cpu, cycles-2)
 }
 
-func (s *Suite) InstructionCanInteractWithBus(t *T) {
+func (s cpuSuite) InstructionCanInteractWithBus(t *T) {
 	a := addressIncrementer{address}
 	cpu := s.newCPU(Instructions{code: a})
 	s.bus[address] = value
@@ -236,7 +237,7 @@ func (s *Suite) InstructionCanInteractWithBus(t *T) {
 	s.expectBusValueEq(t, address, value+1)
 }
 
-func (s *Suite) InstructionCanModifyCPUState(t *T) {
+func (s cpuSuite) InstructionCanModifyCPUState(t *T) {
 	sm := stateModifier{value}
 	cpu := s.newCPU(Instructions{code: sm})
 
@@ -248,7 +249,7 @@ func (s *Suite) InstructionCanModifyCPUState(t *T) {
 	expectProgramCounterEq(t, cpu, value)
 }
 
-func (s *Suite) OnReset_RestoreInitialState(t *T) {
+func (s cpuSuite) OnReset_RestoreInitialState(t *T) {
 	sm := stateModifier{value}
 	cpu := s.newCPU(Instructions{code: sm})
 

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	. "github.com/smarkuck/nes/nes/cpu"
+	"github.com/smarkuck/nes/nes/cpu/byteutil"
+	. "github.com/smarkuck/nes/nes/cpu/testutil"
 	. "github.com/smarkuck/unittest"
 )
 
@@ -29,20 +31,11 @@ const (
 	invalidErrorText           = "invalid error message"
 	invalidBusValueText        = "invalid value in bus"
 
-	unknownInstrFormat  = "unknown instruction code: " + HexByte
+	unknownInstrFormat = "unknown instruction code: " +
+		byteutil.HexByte
 	invalidCyclesFormat = "encountered instruction needs " +
-		"0 cycles to execute: " + HexByte
+		"0 cycles to execute: " + byteutil.HexByte
 )
-
-type testBus map[uint16]byte
-
-func (t testBus) Read(addr uint16) byte {
-	return t[addr]
-}
-
-func (t testBus) Write(addr uint16, value byte) {
-	t[addr] = value
-}
 
 type execChecker struct {
 	cycles    uint8
@@ -114,17 +107,17 @@ func expectRegistersEq(t *T, cpu CPU, value byte) {
 
 func expectStatusEq(t *T, cpu CPU, value byte) {
 	ExpectEqf(t, cpu.GetStatus(), value,
-		BinByte, invalidStatusText)
+		byteutil.BinByte, invalidStatusText)
 }
 
 func expectStackPtrEq(t *T, cpu CPU, value byte) {
 	ExpectEqf(t, cpu.GetStackPtr(), value,
-		HexByte, invalidStackPtrText)
+		byteutil.HexByte, invalidStackPtrText)
 }
 
 func expectProgramCounterEq(t *T, cpu CPU, value uint16) {
 	ExpectEqf(t, cpu.GetProgramCounter(), value,
-		TwoHexBytes, invalidProgramCounterText)
+		byteutil.TwoHexBytes, invalidProgramCounterText)
 }
 
 func expectRemainingCyclesEq(t *T, cpu CPU, value uint8) {
@@ -141,7 +134,7 @@ func getInvalidCyclesText(code byte) string {
 }
 
 func Test_OnNewCPU_CreateCPUWithProperState(t *T) {
-	cpu := NewCPU(testBus{}, Instructions{})
+	cpu := NewCPU(TestBus{}, Instructions{})
 
 	expectRegistersEq(t, cpu, 0)
 	expectStatusEq(t, cpu, initStatus)
@@ -150,22 +143,16 @@ func Test_OnNewCPU_CreateCPUWithProperState(t *T) {
 }
 
 type cpuSuite struct {
-	bus testBus
+	bus TestBus
 }
 
 func (s *cpuSuite) Setup() {
-	s.bus = testBus{}
-	s.bus[resetVector] = getLowByte(resetProgramAddr)
-	s.bus[resetVector+1] = getHighByte(resetProgramAddr)
-	s.bus[resetProgramAddr] = code
-}
-
-func getLowByte(value uint16) byte {
-	return byte(value)
-}
-
-func getHighByte(value uint16) byte {
-	return byte(value >> 8)
+	s.bus = NewTestBus(resetVector,
+		Program{
+			byteutil.GetLow(resetProgramAddr),
+			byteutil.GetHigh(resetProgramAddr),
+		},
+		Memory{resetProgramAddr: code})
 }
 
 func (s cpuSuite) newCPU(i Instructions) CPU {

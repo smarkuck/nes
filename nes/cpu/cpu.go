@@ -1,19 +1,26 @@
 package cpu
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/smarkuck/nes/nes"
+	"github.com/smarkuck/nes/nes/cpu/byteutil"
+	"github.com/smarkuck/nes/nes/cpu/instruction"
+	"github.com/smarkuck/nes/nes/cpu/state"
+)
 
 const (
-	initStatus   = 0x34
+	initStatus   = state.DisableInterrupt | state.Break | state.Unused
 	initStackPtr = 0xfd
-	resetVector  = 0xfffc
 
-	hexByte                 = "%#02x"
-	missingBusText          = "missing CPU bus"
-	missingInstructionsText = "missing CPU instructions"
-	unknownInstrFormat      = "unknown instruction code: " + hexByte
-	invalidCyclesFormat     = "encountered instruction needs " +
-		"0 cycles to execute: " + hexByte
+	unknownInstrFormat = "unknown instruction code: " +
+		byteutil.HexByte
+	invalidCyclesFormat = "encountered instruction needs " +
+		"0 cycles to execute: " + byteutil.HexByte
 )
+
+type Instruction = instruction.Instruction
+type State = state.State
 
 type CPU interface {
 	Tick()
@@ -28,37 +35,16 @@ type CPU interface {
 }
 
 type cpu struct {
-	State
 	Instructions
+	State
 	remainingCycles uint8
-}
-
-type State struct {
-	Accumulator    byte
-	RegisterX      byte
-	RegisterY      byte
-	Status         byte
-	StackPtr       byte
-	ProgramCounter uint16
-	Bus
-}
-
-type Bus interface {
-	Read(addr uint16) byte
-	Write(addr uint16, value byte)
 }
 
 type Instructions map[byte]Instruction
 
-type Instruction interface {
-	Execute(*State)
-	GetCycles() uint8
-}
-
-func NewCPU(b Bus, i Instructions) CPU {
+func NewCPU(b nes.Bus, i Instructions) CPU {
 	c := new(cpu)
-	c.Bus = b
-	c.Instructions = i
+	c.Bus, c.Instructions = b, i
 	c.Reset()
 	return c
 }
@@ -66,7 +52,7 @@ func NewCPU(b Bus, i Instructions) CPU {
 func (c *cpu) Reset() {
 	c.resetState()
 	c.remainingCycles = 0
-	c.loadProgram()
+	c.LoadResetProgram()
 }
 
 func (c *cpu) resetState() {
@@ -77,17 +63,11 @@ func (c *cpu) resetState() {
 	}
 }
 
-func (c *cpu) loadProgram() {
-	lo := c.Read(resetVector)
-	hi := c.Read(resetVector + 1)
-	c.ProgramCounter = uint16(hi)<<8 + uint16(lo)
-}
-
 func (c *cpu) Tick() {
 	if c.remainingCycles == 0 {
-		code, i := c.getInstruction()
-		i.Execute(&c.State)
-		c.updateCycles(code, i)
+		code, instr := c.getInstruction()
+		instr.Execute(&c.State)
+		c.updateCycles(code, instr)
 	}
 	c.remainingCycles--
 }

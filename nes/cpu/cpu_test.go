@@ -5,27 +5,18 @@ import (
 
 	. "github.com/smarkuck/nes/nes/cpu"
 	"github.com/smarkuck/nes/nes/cpu/byteutil"
+	"github.com/smarkuck/nes/nes/cpu/state"
 	. "github.com/smarkuck/nes/nes/cpu/testutil"
 	. "github.com/smarkuck/unittest"
 )
 
 const (
-	initStatus       = 0x34
-	initStackPtr     = 0xfd
-	resetVector      = 0xfffc
-	resetProgramAddr = 0x1050
+	resetPrgAddr = 0x1050
+	address      = 0x1060
+	code         = 0x07
+	cycles       = 13
+	value        = 234
 
-	address = 0x1060
-	code    = 0x07
-	cycles  = 13
-	value   = 234
-
-	invalidAccumulatorText     = "invalid accumulator"
-	invalidRegisterXText       = "invalid register X"
-	invalidRegisterYText       = "invalid register Y"
-	invalidStatusText          = "invalid status"
-	invalidStackPtrText        = "invalid stack pointer"
-	invalidProgramCounterText  = "invalid program counter"
 	invalidRemainingCyclesText = "invalid remaining cycles"
 	invalidExecCountText       = "invalid number of executions"
 	invalidErrorText           = "invalid error message"
@@ -33,6 +24,7 @@ const (
 
 	unknownInstrFormat = "unknown instruction code: " +
 		byteutil.HexByte
+
 	invalidCyclesFormat = "encountered instruction needs " +
 		"0 cycles to execute: " + byteutil.HexByte
 )
@@ -42,7 +34,7 @@ type execChecker struct {
 	execCount uint
 }
 
-func (e *execChecker) Execute(*State) {
+func (e *execChecker) Execute(*state.State) {
 	e.execCount++
 }
 
@@ -58,7 +50,7 @@ type addressIncrementer struct {
 	address uint16
 }
 
-func (a addressIncrementer) Execute(s *State) {
+func (a addressIncrementer) Execute(s *state.State) {
 	v := s.Read(a.address)
 	s.Write(a.address, v+1)
 }
@@ -71,53 +63,12 @@ type stateModifier struct {
 	value byte
 }
 
-func (s stateModifier) Execute(state *State) {
-	state.Accumulator = s.value
-	state.RegisterX = s.value
-	state.RegisterY = s.value
-	state.Status = s.value
-	state.StackPtr = s.value
-	state.ProgramCounter = uint16(s.value)
+func (s stateModifier) Execute(state *state.State) {
+	*state = *NewState(s.value, state.Bus)
 }
 
 func (stateModifier) GetCycles() uint8 {
 	return cycles
-}
-
-func expectAccumulatorEq(t *T, cpu CPU, value byte) {
-	ExpectEq(t, cpu.GetAccumulator(), value,
-		invalidAccumulatorText)
-}
-
-func expectRegisterXEq(t *T, cpu CPU, value byte) {
-	ExpectEq(t, cpu.GetRegisterX(), value,
-		invalidRegisterXText)
-}
-
-func expectRegisterYEq(t *T, cpu CPU, value byte) {
-	ExpectEq(t, cpu.GetRegisterY(), value,
-		invalidRegisterYText)
-}
-
-func expectRegistersEq(t *T, cpu CPU, value byte) {
-	expectAccumulatorEq(t, cpu, value)
-	expectRegisterXEq(t, cpu, value)
-	expectRegisterYEq(t, cpu, value)
-}
-
-func expectStatusEq(t *T, cpu CPU, value byte) {
-	ExpectEqf(t, cpu.GetStatus(), value,
-		byteutil.BinByte, invalidStatusText)
-}
-
-func expectStackPtrEq(t *T, cpu CPU, value byte) {
-	ExpectEqf(t, cpu.GetStackPtr(), value,
-		byteutil.HexByte, invalidStackPtrText)
-}
-
-func expectProgramCounterEq(t *T, cpu CPU, value uint16) {
-	ExpectEqf(t, cpu.GetProgramCounter(), value,
-		byteutil.TwoHexBytes, invalidProgramCounterText)
 }
 
 func expectRemainingCyclesEq(t *T, cpu CPU, value uint8) {
@@ -134,12 +85,19 @@ func getInvalidCyclesText(code byte) string {
 }
 
 func Test_OnNewCPU_CreateCPUWithProperState(t *T) {
-	cpu := NewCPU(TestBus{}, Instructions{})
+	bus := TestBus{}
+	cpu := NewCPU(bus, nil)
 
-	expectRegistersEq(t, cpu, 0)
-	expectStatusEq(t, cpu, initStatus)
-	expectStackPtrEq(t, cpu, initStackPtr)
+	ExpectStateEq(t, cpu.GetState(), NewInitState(0, bus))
 	expectRemainingCyclesEq(t, cpu, 0)
+}
+
+func Test_CannotManipulateCPUByReturnedState(t *T) {
+	cpu := NewCPU(TestBus{}, nil)
+
+	cpu.GetState().Accumulator = 1
+
+	ExpectAccumulatorEq(t, cpu.GetState(), 0)
 }
 
 type cpuSuite struct {
@@ -147,12 +105,7 @@ type cpuSuite struct {
 }
 
 func (s *cpuSuite) Setup() {
-	s.bus = NewTestBus(resetVector,
-		Program{
-			byteutil.GetLow(resetProgramAddr),
-			byteutil.GetHigh(resetProgramAddr),
-		},
-		Memory{resetProgramAddr: code})
+	s.bus = NewTestBusResetPrg(resetPrgAddr, code)
 }
 
 func (s cpuSuite) newCPU(i Instructions) CPU {
@@ -169,9 +122,9 @@ func Test_CPU(t *T) {
 }
 
 func (s cpuSuite) OnNewCPU_LoadProgramFromResetVector(t *T) {
-	cpu := s.newCPU(Instructions{})
+	cpu := s.newCPU(nil)
 
-	expectProgramCounterEq(t, cpu, resetProgramAddr)
+	ExpectProgramCounterEq(t, cpu.GetState(), resetPrgAddr)
 }
 
 func (s cpuSuite) WhenNoCyclesLeft_ExecNextInstr(t *T) {
@@ -230,10 +183,8 @@ func (s cpuSuite) InstructionCanModifyCPUState(t *T) {
 
 	cpu.Tick()
 
-	expectRegistersEq(t, cpu, value)
-	expectStatusEq(t, cpu, value)
-	expectStackPtrEq(t, cpu, value)
-	expectProgramCounterEq(t, cpu, value)
+	ExpectStateEq(t,
+		cpu.GetState(), NewState(value, s.bus))
 }
 
 func (s cpuSuite) OnReset_RestoreInitialState(t *T) {
@@ -243,9 +194,7 @@ func (s cpuSuite) OnReset_RestoreInitialState(t *T) {
 	cpu.Tick()
 	cpu.Reset()
 
-	expectRegistersEq(t, cpu, 0)
-	expectStatusEq(t, cpu, initStatus)
-	expectStackPtrEq(t, cpu, initStackPtr)
-	expectProgramCounterEq(t, cpu, resetProgramAddr)
+	ExpectStateEq(t,
+		cpu.GetState(), NewInitState(resetPrgAddr, s.bus))
 	expectRemainingCyclesEq(t, cpu, 0)
 }

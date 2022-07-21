@@ -36,5 +36,5 @@ func ToArithmeticUint16(shift byte) uint16 {
 }
 
 func IsNegative(b byte) bool {
-	return b&0x80 == 0x80
+	return b&0x80 != 0
 }

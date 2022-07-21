@@ -38,10 +38,10 @@ func Test_IncrementLowByte(t *T) {
 }
 
 func Test_IsNegative(t *T) {
-	ExpectTrue(t, IsNegative(0xff))
-	ExpectTrue(t, IsNegative(0x80))
+	ExpectTrue(t, IsNegative(0xff)) // -1
+	ExpectTrue(t, IsNegative(0x80)) // -128
 	ExpectFalse(t, IsNegative(0x00))
-	ExpectFalse(t, IsNegative(0x7f))
+	ExpectFalse(t, IsNegative(0x7f)) // 127
 }
 
 func Test_ToArithmeticUint16(t *T) {

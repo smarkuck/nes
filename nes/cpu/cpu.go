@@ -10,37 +10,29 @@ import (
 )
 
 const (
-	initStatus   = state.DisableInterrupt | state.Break | state.Unused
-	initStackPtr = 0xfd
-
 	unknownInstrFormat = "unknown instruction code: " +
 		byteutil.HexByte
+
 	invalidCyclesFormat = "encountered instruction needs " +
 		"0 cycles to execute: " + byteutil.HexByte
 )
 
-type Instruction = instruction.Instruction
-type State = state.State
+type instr = instruction.Instruction
 
 type CPU interface {
 	Tick()
 	Reset()
-	GetAccumulator() byte
-	GetRegisterX() byte
-	GetRegisterY() byte
-	GetStatus() byte
-	GetStackPtr() byte
-	GetProgramCounter() uint16
+	GetState() *state.State
 	GetRemainingCycles() uint8
 }
 
 type cpu struct {
 	Instructions
-	State
+	state.State
 	remainingCycles uint8
 }
 
-type Instructions map[byte]Instruction
+type Instructions map[byte]instr
 
 func NewCPU(b nes.Bus, i Instructions) CPU {
 	c := new(cpu)
@@ -50,17 +42,8 @@ func NewCPU(b nes.Bus, i Instructions) CPU {
 }
 
 func (c *cpu) Reset() {
-	c.resetState()
+	c.State.Reset()
 	c.remainingCycles = 0
-	c.LoadResetProgram()
-}
-
-func (c *cpu) resetState() {
-	c.State = State{
-		Status:   initStatus,
-		StackPtr: initStackPtr,
-		Bus:      c.Bus,
-	}
 }
 
 func (c *cpu) Tick() {
@@ -72,8 +55,8 @@ func (c *cpu) Tick() {
 	c.remainingCycles--
 }
 
-func (c *cpu) getInstruction() (byte, Instruction) {
-	code := c.Read(c.ProgramCounter)
+func (c *cpu) getInstruction() (byte, instr) {
+	code := c.ReadInstructionCode()
 	if i, ok := c.Instructions[code]; ok {
 		return code, i
 	}
@@ -84,7 +67,7 @@ func getUnknownInstrErr(code byte) error {
 	return fmt.Errorf(unknownInstrFormat, code)
 }
 
-func (c *cpu) updateCycles(code byte, i Instruction) {
+func (c *cpu) updateCycles(code byte, i instr) {
 	c.remainingCycles = i.GetCycles()
 	if c.remainingCycles == 0 {
 		panic(getInvalidCyclesErr(code))
@@ -95,28 +78,9 @@ func getInvalidCyclesErr(code byte) error {
 	return fmt.Errorf(invalidCyclesFormat, code)
 }
 
-func (c *cpu) GetAccumulator() byte {
-	return c.Accumulator
-}
-
-func (c *cpu) GetRegisterX() byte {
-	return c.RegisterX
-}
-
-func (c *cpu) GetRegisterY() byte {
-	return c.RegisterY
-}
-
-func (c *cpu) GetStatus() byte {
-	return c.Status
-}
-
-func (c *cpu) GetStackPtr() byte {
-	return c.StackPtr
-}
-
-func (c *cpu) GetProgramCounter() uint16 {
-	return c.ProgramCounter
+func (c *cpu) GetState() *state.State {
+	s := c.State
+	return &s
 }
 
 func (c *cpu) GetRemainingCycles() uint8 {

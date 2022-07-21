@@ -3,53 +3,54 @@ package instruction_test
 import (
 	"github.com/smarkuck/nes/nes/cpu/byteutil"
 	. "github.com/smarkuck/nes/nes/cpu/instruction"
+	"github.com/smarkuck/nes/nes/cpu/state"
 	. "github.com/smarkuck/nes/nes/cpu/testutil"
 	. "github.com/smarkuck/unittest"
 )
 
 const (
 	programAddr = 0xc1fe
-	paramOffset = 1
 	value       = 26
 	cycles      = 8
 	bonus       = 2
+	paramOffset = 1
 	basicShift  = 2
 	basicCycles = 2
 )
 
-func newState(p Program, m Memory) *State {
-	return &State{
+func newState(p Program, m Memory) *state.State {
+	return &state.State{
 		ProgramCounter: programAddr,
 		Bus: NewTestBus(
 			programAddr+paramOffset, p, m),
 	}
 }
 
-func newStateX(x byte, p Program, m Memory) *State {
+func newStateX(x byte, p Program, m Memory) *state.State {
 	s := newState(p, m)
 	s.RegisterX = x
 	return s
 }
 
-func newStateY(y byte, p Program, m Memory) *State {
+func newStateY(y byte, p Program, m Memory) *state.State {
 	s := newState(p, m)
 	s.RegisterY = y
 	return s
 }
 
-var idleCmd = func(*State, uint16) {}
+var idleCmd = func(*state.State, uint16) {}
 
-type impliedCmd = func(*State)
-type addressCmd = func(_ *State, addr uint16)
+type impliedCmd = func(*state.State)
+type addressedCmd = func(_ *state.State, addr uint16)
 
-func transformToAddressCmd(c impliedCmd) addressCmd {
-	return func(s *State, _ uint16) { c(s) }
+func transformToAddressedCmd(c impliedCmd) addressedCmd {
+	return func(s *state.State, _ uint16) { c(s) }
 }
 
 func Test_OnExecute_RunProvidedCommandOnce(t *T) {
 	var counter uint
-	count := func(*State) { counter++ }
-	countAddr := transformToAddressCmd(count)
+	count := func(*state.State) { counter++ }
+	countAddr := transformToAddressedCmd(count)
 	countRel := func(byte) bool { counter++; return true }
 
 	tests := []struct {
@@ -82,8 +83,8 @@ func Test_OnExecute_RunProvidedCommandOnce(t *T) {
 
 func Test_OnExecute_ShiftProgramCounterBeforeCommand(t *T) {
 	var counter uint16
-	save := func(s *State) { counter = s.ProgramCounter }
-	saveAddr := transformToAddressCmd(save)
+	save := func(s *state.State) { counter = s.ProgramCounter }
+	saveAddr := transformToAddressedCmd(save)
 
 	tests := []struct {
 		name        string
@@ -114,8 +115,8 @@ func Test_OnExecute_ShiftProgramCounterBeforeCommand(t *T) {
 }
 
 func Test_OnExecute_ProvidedCommandCanModifyState(t *T) {
-	save := func(s *State) { s.Accumulator = value }
-	saveAddr := transformToAddressCmd(save)
+	save := func(s *state.State) { s.Accumulator = value }
+	saveAddr := transformToAddressedCmd(save)
 
 	tests := []struct {
 		name        string
@@ -146,13 +147,13 @@ func Test_OnExecute_ProvidedCommandCanModifyState(t *T) {
 
 func Test_OnExecute_PassProperAddressToCommand(t *T) {
 	var address uint16
-	save := func(_ *State, addr uint16) { address = addr }
+	save := func(_ *state.State, addr uint16) { address = addr }
 
 	tests := []struct {
 		name         string
 		instruction  Instruction
 		expectedAddr uint16
-		state        *State
+		state        *state.State
 	}{
 		{"Immediate_NextByteAddress",
 			NewImmediate(save, cycles),
@@ -310,7 +311,7 @@ func Test_OnExecute_DontIncreaseCyclesIfPageNotCrossed(t *T) {
 	tests := []struct {
 		name        string
 		instruction Instruction
-		state       *State
+		state       *state.State
 	}{
 		{"AbsoluteX", NewAbsoluteX(idleCmd, cycles, bonus),
 			newStateX(1, Program{0xfe, 0x45}, nil)},
@@ -335,7 +336,7 @@ func Test_OnExecute_IncreaseCyclesOnlyOnceIfPageCrossed(t *T) {
 	tests := []struct {
 		name  string
 		instr Instruction
-		state *State
+		state *state.State
 	}{
 		{"AbsoluteX", NewAbsoluteX(idleCmd, cycles, bonus),
 			newStateX(1, Program{0xff, 0x45}, nil)},
@@ -364,7 +365,7 @@ func Test_OnExecute_DecreaseCyclesIfPageNotCrossed(t *T) {
 	tests := []struct {
 		name  string
 		instr Instruction
-		state *State
+		state *state.State
 	}{
 		{"AbsoluteX", NewAbsoluteX(idleCmd, cycles, bonus),
 			newStateX(1, Program{0xff, 0x45}, nil)},
@@ -416,7 +417,7 @@ func Test_RelativeMode_RtnCyclesBasedOnCmdAndPageCross(t *T) {
 	tests := []struct {
 		name   string
 		phases [2]phase
-	}{
+	}{ // 0x80 -> -128, 0xff -> -1
 		{"ShiftWithoutCross_NoShift",
 			[2]phase{{true, 0x00, 1}, {false, 0x80, 0}}},
 		{"ShiftWithCross_NoShift",
@@ -433,7 +434,7 @@ func Test_RelativeMode_RtnCyclesBasedOnCmdAndPageCross(t *T) {
 
 	testPhase := func(t *T, i Instruction, p phase) {
 		cmdResult = p.cmdResult
-		s := newState(Program{p.shift}, nil)
+		s := newState(Program{byte(p.shift)}, nil)
 		i.Execute(s)
 		ExpectEq(t, i.GetCycles(), basicCycles+p.bonusCycles)
 	}

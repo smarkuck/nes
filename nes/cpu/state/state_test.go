@@ -169,6 +169,29 @@ func Test_GetCarryValue(t *T) {
 	ExpectEq(t, s.GetCarryValue(), 1)
 }
 
+func Test_Flags(t *T) {
+	tests := []struct {
+		name string
+		cmd  func(byte) bool
+		flag byte
+	}{
+		{"IsCarry", state.IsCarry, Carry},
+		{"IsZero", state.IsZero, Zero},
+		{"IsOverflow", state.IsOverflow, Overflow},
+		{"IsNegative", state.IsNegative, Negative},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *T) {
+			status := value | test.flag
+			ExpectTrue(t, test.cmd(status))
+
+			status = value &^ test.flag
+			ExpectFalse(t, test.cmd(status))
+		})
+	}
+}
+
 func Test_EnableFlags(t *T) {
 	s := State{Status: Carry | Zero}
 	s.EnableFlags(Zero | Negative)

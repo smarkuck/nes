@@ -76,7 +76,7 @@ func (s *State) ReadTwoBytes(addr uint16) uint16 {
 func (s *State) ReadTwoBytesPageOverflow(
 	addr uint16) uint16 {
 	lo := s.Read(addr)
-	hi := s.Read(byteutil.IncrementLowByte(addr))
+	hi := s.Read(byteutil.IncrementLow(addr))
 	return byteutil.Merge(hi, lo)
 }
 
@@ -148,4 +148,24 @@ func (s *State) DisableFlags(flags byte) {
 
 func (s *State) GetCarryValue() byte {
 	return s.Status & Carry
+}
+
+func IsCarry(status byte) bool {
+	return isFlag(status, Carry)
+}
+
+func IsZero(status byte) bool {
+	return isFlag(status, Zero)
+}
+
+func IsOverflow(status byte) bool {
+	return isFlag(status, Overflow)
+}
+
+func IsNegative(status byte) bool {
+	return isFlag(status, Negative)
+}
+
+func isFlag(status byte, flag byte) bool {
+	return status&flag != 0
 }

@@ -6,11 +6,11 @@ const (
 	TwoHexBytes = "%#04x"
 )
 
-func IsSameHighByte(addr1, addr2 uint16) bool {
+func IsHighEqual(addr1, addr2 uint16) bool {
 	return GetHigh(addr1) == GetHigh(addr2)
 }
 
-func IncrementLowByte(value uint16) uint16 {
+func IncrementLow(value uint16) uint16 {
 	lo := GetLow(value) + 1
 	return Merge(GetHigh(value), lo)
 }

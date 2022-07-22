@@ -74,7 +74,7 @@ func expectAccumulatorBinEq(t *T,
 		InvalidAccumulatorText)
 }
 
-func Test_Commands(t *T) {
+func Test_ImpliedCommands(t *T) {
 	tests := []struct {
 		name   string
 		cmd    Implied
@@ -316,7 +316,7 @@ func Test_Commands(t *T) {
 	}
 }
 
-func Test_ShiftCommands(t *T) {
+func Test_AccumulativeCommands(t *T) {
 	tests := []struct {
 		name   string
 		cmd    Implied
@@ -388,6 +388,33 @@ func Test_ShiftCommands(t *T) {
 			test.cmd(&test.before)
 			expectAccumulatorBinEq(t, &test.before, &test.after)
 			ExpectStatusEq(t, &test.before, test.after.Status)
+		})
+	}
+}
+
+func Test_RelativeCommands(t *T) {
+	tests := []struct {
+		name  string
+		cmd   Relative
+		flag  byte
+		value bool
+	}{
+		{"BPL", BPL, Negative, false},
+		{"BMI", BMI, Negative, true},
+		{"BVC", BVC, Overflow, false},
+		{"BVS", BVS, Overflow, true},
+		{"BCC", BCC, Carry, false},
+		{"BCS", BCS, Carry, true},
+		{"BNE", BNE, Zero, false},
+		{"BEQ", BEQ, Zero, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *T) {
+			ExpectEq(t,
+				test.cmd(status|test.flag), test.value)
+			ExpectEq(t,
+				test.cmd(status&^test.flag), !test.value)
 		})
 	}
 }

@@ -25,15 +25,15 @@ func Test_Merge(t *T) {
 	ExpectEqf(t, Merge(0x8c, 0xfa), 0x8cfa, TwoHexBytes)
 }
 
-func Test_IsSameHighByte(t *T) {
-	ExpectTrue(t, IsSameHighByte(0x7c8a, 0x7c02))
-	ExpectFalse(t, IsSameHighByte(0x7d02, 0x7c02))
+func Test_IsHighEqual(t *T) {
+	ExpectTrue(t, IsHighEqual(0x7c8a, 0x7c02))
+	ExpectFalse(t, IsHighEqual(0x7d02, 0x7c02))
 }
 
-func Test_IncrementLowByte(t *T) {
-	ExpectEqf(t, IncrementLowByte(0x8cfa), 0x8cfb,
+func Test_IncrementLow(t *T) {
+	ExpectEqf(t, IncrementLow(0x8cfa), 0x8cfb,
 		TwoHexBytes)
-	ExpectEqf(t, IncrementLowByte(0x8cff), 0x8c00,
+	ExpectEqf(t, IncrementLow(0x8cff), 0x8c00,
 		TwoHexBytes)
 }
 

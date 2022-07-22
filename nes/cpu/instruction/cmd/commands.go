@@ -17,12 +17,44 @@ func ASL(s *state.State) {
 	s.UpdateZeroNegativeFlags(s.Accumulator)
 }
 
+func BCC(status byte) bool {
+	return !state.IsCarry(status)
+}
+
+func BCS(status byte) bool {
+	return state.IsCarry(status)
+}
+
+func BEQ(status byte) bool {
+	return state.IsZero(status)
+}
+
+func BMI(status byte) bool {
+	return state.IsNegative(status)
+}
+
+func BNE(status byte) bool {
+	return !state.IsZero(status)
+}
+
+func BPL(status byte) bool {
+	return !state.IsNegative(status)
+}
+
 func BRK(s *state.State) {
 	s.ProgramCounter += breakMarkSize
 	s.PushTwoBytesOnStack(s.ProgramCounter)
-	PHP(s)
-	SEI(s)
+	s.PushOnStack(s.Status)
+	s.EnableFlags(state.InterruptDisable)
 	s.LoadIRQProgram()
+}
+
+func BVC(status byte) bool {
+	return !state.IsOverflow(status)
+}
+
+func BVS(status byte) bool {
+	return state.IsOverflow(status)
 }
 
 func CLC(s *state.State) {
@@ -102,7 +134,8 @@ func ROR(s *state.State) {
 }
 
 func RTI(s *state.State) {
-	PLP(s)
+	s.Status = s.PullFromStack()
+	s.EnableFlags(state.Break | state.Unused)
 	s.ProgramCounter = s.PullTwoBytesFromStack()
 }
 

@@ -215,7 +215,7 @@ func newPageCrossMode(c cmd.Addressed,
 }
 
 func (p *pageCrossMode) checkPageCross(base, final uint16) {
-	p.isPageCross = !byteutil.IsSameHighByte(base, final)
+	p.isPageCross = !byteutil.IsHighEqual(base, final)
 }
 
 func (p *pageCrossMode) GetCycles() uint8 {
@@ -261,7 +261,7 @@ func (r *relativeMode) runCmd(s *state.State, shift uint16) {
 
 func (r *relativeMode) updateCycles(base, final uint16) {
 	r.bonusCycles++
-	if !byteutil.IsSameHighByte(base, final) {
+	if !byteutil.IsHighEqual(base, final) {
 		r.bonusCycles++
 	}
 }

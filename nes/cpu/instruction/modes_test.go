@@ -1,7 +1,6 @@
 package instruction_test
 
 import (
-	"github.com/smarkuck/nes/nes/cpu/byteutil"
 	. "github.com/smarkuck/nes/nes/cpu/instruction"
 	"github.com/smarkuck/nes/nes/cpu/state"
 	. "github.com/smarkuck/nes/nes/cpu/testutil"
@@ -21,7 +20,7 @@ const (
 func newState(p Program, m Memory) *state.State {
 	return &state.State{
 		ProgramCounter: programAddr,
-		Bus: NewTestBus(
+		Bus: NewTestBusProgram(
 			programAddr+paramOffset, p, m),
 	}
 }
@@ -108,8 +107,8 @@ func Test_OnExecute_ShiftProgramCounterBeforeCommand(t *T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *T) {
 			test.instruction.Execute(newState(nil, nil))
-			ExpectEqf(t, counter, programAddr+test.shift,
-				byteutil.TwoHexBytes)
+			ExpectTwoHexBytesEq(t,
+				counter, programAddr+test.shift)
 		})
 	}
 }
@@ -245,8 +244,8 @@ func Test_OnExecute_PassProperAddressToCommand(t *T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *T) {
 			test.instruction.Execute(test.state)
-			ExpectEqf(t, address, test.expectedAddr,
-				byteutil.TwoHexBytes)
+			ExpectTwoHexBytesEq(t,
+				address, test.expectedAddr)
 		})
 	}
 }
@@ -275,8 +274,7 @@ func Test_RelativeMode_OnExecute_ShiftProgramCounter(t *T) {
 
 			NewRelative(cmd).Execute(s)
 
-			ExpectEqf(t, s.ProgramCounter, test.expectedAddr,
-				byteutil.TwoHexBytes)
+			ExpectProgramCounterEq(t, s, test.expectedAddr)
 		})
 	}
 }
@@ -434,7 +432,7 @@ func Test_RelativeMode_RtnCyclesBasedOnCmdAndPageCross(t *T) {
 
 	testPhase := func(t *T, i Instruction, p phase) {
 		cmdResult = p.cmdResult
-		s := newState(Program{byte(p.shift)}, nil)
+		s := newState(Program{p.shift}, nil)
 		i.Execute(s)
 		ExpectEq(t, i.GetCycles(), basicCycles+p.bonusCycles)
 	}

@@ -14,8 +14,8 @@ const (
 	resetPrgAddr = 0x1050
 	address      = 0x1060
 	code         = 0x07
+	value        = 0xea
 	cycles       = 13
-	value        = 234
 
 	invalidRemainingCyclesText = "invalid remaining cycles"
 	invalidExecCountText       = "invalid number of executions"
@@ -114,7 +114,8 @@ func (s cpuSuite) newCPU(i Instructions) CPU {
 
 func (s cpuSuite) expectBusValueEq(t *T,
 	addr uint16, value byte) {
-	ExpectEq(t, s.bus[addr], value, invalidBusValueText)
+	ExpectEqf(t, s.bus[addr], value,
+		byteutil.HexByte, invalidBusValueText)
 }
 
 func Test_CPU(t *T) {

@@ -16,10 +16,10 @@ const (
 	Carry = 1 << iota
 	Zero
 	InterruptDisable
-	_
+	Decimal
 	Break
 	Unused
-	_
+	Overflow
 	Negative
 
 	InitStatus = InterruptDisable | Break | Unused
@@ -30,13 +30,13 @@ const (
 	InitStackPtr  = 0xfd
 	InitStackAddr = StackOffset | InitStackPtr
 
-	invalidAccumulatorText    = "invalid accumulator"
-	invalidRegisterXText      = "invalid register X"
-	invalidRegisterYText      = "invalid register Y"
-	invalidStatusText         = "invalid status"
-	invalidStackPtrText       = "invalid stack pointer"
-	invalidProgramCounterText = "invalid program counter"
-	invalidBusText            = "invalid bus reference"
+	InvalidAccumulatorText    = "invalid accumulator"
+	InvalidRegisterXText      = "invalid register X"
+	InvalidRegisterYText      = "invalid register Y"
+	InvalidStatusText         = "invalid status"
+	InvalidStackPtrText       = "invalid stack pointer"
+	InvalidProgramCounterText = "invalid program counter"
+	InvalidBusText            = "invalid bus reference"
 )
 
 type statePtr = *state.State
@@ -44,10 +44,24 @@ type test = *testing.T
 
 type TestBus map[uint16]byte
 type Program = []byte
+type Stack = []byte
 type Memory = map[uint16]byte
 
+func NewTestBusStack(s Stack, m Memory) TestBus {
+	bus := TestBus{}
+	bus.loadStack(s)
+	bus.loadMemory(m)
+	return bus
+}
+
+func (t TestBus) loadStack(s Stack) {
+	for i, v := range s {
+		t[InitStackAddr-uint16(i)] = v
+	}
+}
+
 func NewTestBusResetPrg(addr uint16, code byte) TestBus {
-	return NewTestBus(ResetVector,
+	return NewTestBusProgram(ResetVector,
 		Program{
 			byteutil.GetLow(addr),
 			byteutil.GetHigh(addr),
@@ -56,7 +70,8 @@ func NewTestBusResetPrg(addr uint16, code byte) TestBus {
 	)
 }
 
-func NewTestBus(addr uint16, p Program, m Memory) TestBus {
+func NewTestBusProgram(
+	addr uint16, p Program, m Memory) TestBus {
 	bus := TestBus{}
 	bus.loadProgram(addr, p)
 	bus.loadMemory(m)
@@ -130,6 +145,22 @@ func NewState(value byte, bus nes.Bus) statePtr {
 	}
 }
 
+func ExpectBinByteEq(t test,
+	actual, expected byte, msg ...string) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.BinByte, msg...)
+}
+
+func ExpectHexByteEq(t test, actual, expected byte) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.HexByte)
+}
+
+func ExpectTwoHexBytesEq(t test, actual, expected uint16) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.TwoHexBytes)
+}
+
 func ExpectStateEq(t test, actual, expected statePtr) {
 	ExpectRegistersEq(t, actual, expected)
 	ExpectStatusEq(t, actual, expected.Status)
@@ -145,38 +176,38 @@ func ExpectRegistersEq(t test, actual, expected statePtr) {
 }
 
 func ExpectAccumulatorEq(t test, s statePtr, value byte) {
-	unittest.ExpectEq(t, s.Accumulator, value,
-		invalidAccumulatorText)
+	unittest.ExpectEqf(t, s.Accumulator, value,
+		byteutil.HexByte, InvalidAccumulatorText)
 }
 
 func ExpectRegisterXEq(t test, s statePtr, value byte) {
-	unittest.ExpectEq(t, s.RegisterX, value,
-		invalidRegisterXText)
+	unittest.ExpectEqf(t, s.RegisterX, value,
+		byteutil.HexByte, InvalidRegisterXText)
 }
 
 func ExpectRegisterYEq(t test, s statePtr, value byte) {
-	unittest.ExpectEq(t, s.RegisterY, value,
-		invalidRegisterYText)
+	unittest.ExpectEqf(t, s.RegisterY, value,
+		byteutil.HexByte, InvalidRegisterYText)
 }
 
 func ExpectStatusEq(t test, s statePtr, value byte) {
 	unittest.ExpectEqf(t, s.Status, value,
-		byteutil.BinByte, invalidStatusText)
+		byteutil.BinByte, InvalidStatusText)
 }
 
 func ExpectStackPtrEq(t test, s statePtr, value byte) {
 	unittest.ExpectEqf(t, s.StackPtr, value,
-		byteutil.HexByte, invalidStackPtrText)
+		byteutil.HexByte, InvalidStackPtrText)
 }
 
 func ExpectProgramCounterEq(t test,
 	s statePtr, value uint16) {
 	unittest.ExpectEqf(t, s.ProgramCounter, value,
-		byteutil.TwoHexBytes, invalidProgramCounterText)
+		byteutil.TwoHexBytes, InvalidProgramCounterText)
 }
 
 func ExpectBusEq(t test, s statePtr, value nes.Bus) {
 	p1 := fmt.Sprintf("%p", s.Bus)
 	p2 := fmt.Sprintf("%p", value)
-	unittest.ExpectEq(t, p1, p2, invalidBusText)
+	unittest.ExpectEq(t, p1, p2, InvalidBusText)
 }

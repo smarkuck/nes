@@ -1,7 +1,6 @@
 package state_test
 
 import (
-	"github.com/smarkuck/nes/nes/cpu/byteutil"
 	"github.com/smarkuck/nes/nes/cpu/state"
 	. "github.com/smarkuck/nes/nes/cpu/testutil"
 	. "github.com/smarkuck/unittest"
@@ -11,34 +10,22 @@ type State = state.State
 
 const (
 	address     = 0xcafe
-	value       = 0xc7
 	value16     = 0x2f9c
 	value16High = 0x2f
 	value16Low  = 0x9c
+	value       = 0xc7
 )
-
-func expectBinByteEq(t *T, actual, expected byte) {
-	ExpectEqf(t, actual, expected, byteutil.BinByte)
-}
-
-func expectHexByteEq(t *T, actual, expected byte) {
-	ExpectEqf(t, actual, expected, byteutil.HexByte)
-}
-
-func expectTwoHexBytesEq(t *T, actual, expected uint16) {
-	ExpectEqf(t, actual, expected, byteutil.TwoHexBytes)
-}
 
 func Test_GetParamAddress(t *T) {
 	s := State{ProgramCounter: address}
 
-	expectTwoHexBytesEq(t, s.GetParamAddress(), address+1)
+	ExpectTwoHexBytesEq(t, s.GetParamAddress(), address+1)
 }
 
 func Test_Read(t *T) {
 	s := State{Bus: TestBus{address: value}}
 
-	expectHexByteEq(t, s.Read(address), value)
+	ExpectHexByteEq(t, s.Read(address), value)
 }
 
 func Test_ReadTwoBytes(t *T) {
@@ -47,7 +34,7 @@ func Test_ReadTwoBytes(t *T) {
 		0xcb00: value16High,
 	}}
 
-	expectTwoHexBytesEq(t, s.ReadTwoBytes(0xcaff), value16)
+	ExpectTwoHexBytesEq(t, s.ReadTwoBytes(0xcaff), value16)
 }
 
 func Test_ReadTwoBytesPageOverflow(t *T) {
@@ -56,7 +43,7 @@ func Test_ReadTwoBytesPageOverflow(t *T) {
 		0xca00: value16High,
 	}}
 
-	expectTwoHexBytesEq(t,
+	ExpectTwoHexBytesEq(t,
 		s.ReadTwoBytesPageOverflow(0xcaff), value16)
 }
 
@@ -66,7 +53,7 @@ func Test_ReadInstructionCode(t *T) {
 		Bus:            TestBus{address: value},
 	}
 
-	expectHexByteEq(t, s.ReadInstructionCode(), value)
+	ExpectHexByteEq(t, s.ReadInstructionCode(), value)
 }
 
 func Test_ReadOneByteParam(t *T) {
@@ -75,7 +62,7 @@ func Test_ReadOneByteParam(t *T) {
 		Bus:            TestBus{address + 1: value},
 	}
 
-	expectHexByteEq(t, s.ReadOneByteParam(), value)
+	ExpectHexByteEq(t, s.ReadOneByteParam(), value)
 }
 
 func Test_ReadTwoBytesParam(t *T) {
@@ -87,7 +74,7 @@ func Test_ReadTwoBytesParam(t *T) {
 		},
 	}
 
-	expectTwoHexBytesEq(t, s.ReadTwoBytesParam(), value16)
+	ExpectTwoHexBytesEq(t, s.ReadTwoBytesParam(), value16)
 }
 
 func Test_LoadResetProgram(t *T) {
@@ -98,7 +85,7 @@ func Test_LoadResetProgram(t *T) {
 
 	s.LoadResetProgram()
 
-	expectTwoHexBytesEq(t, s.ProgramCounter, value16)
+	ExpectTwoHexBytesEq(t, s.ProgramCounter, value16)
 }
 
 func Test_LoadIRQProgram(t *T) {
@@ -109,7 +96,7 @@ func Test_LoadIRQProgram(t *T) {
 
 	s.LoadIRQProgram()
 
-	expectTwoHexBytesEq(t, s.ProgramCounter, value16)
+	ExpectTwoHexBytesEq(t, s.ProgramCounter, value16)
 }
 
 func Test_OnReset_ClearState_LoadProgram_KeepOldBus(t *T) {
@@ -127,7 +114,7 @@ func Test_Write(t *T) {
 
 	s.Write(address, value)
 
-	expectHexByteEq(t, bus[address], value)
+	ExpectHexByteEq(t, bus[address], value)
 }
 
 func Test_PushOnStack(t *T) {
@@ -136,8 +123,8 @@ func Test_PushOnStack(t *T) {
 
 	s.PushOnStack(value)
 
-	expectHexByteEq(t, bus[InitStackAddr], value)
-	expectHexByteEq(t, s.StackPtr, InitStackPtr-1)
+	ExpectHexByteEq(t, bus[InitStackAddr], value)
+	ExpectHexByteEq(t, s.StackPtr, InitStackPtr-1)
 }
 
 func Test_PushTwoBytesOnStack(t *T) {
@@ -146,9 +133,9 @@ func Test_PushTwoBytesOnStack(t *T) {
 
 	s.PushTwoBytesOnStack(value16)
 
-	expectHexByteEq(t, bus[InitStackAddr], value16High)
-	expectHexByteEq(t, bus[InitStackAddr-1], value16Low)
-	expectHexByteEq(t, s.StackPtr, InitStackPtr-2)
+	ExpectHexByteEq(t, bus[InitStackAddr], value16High)
+	ExpectHexByteEq(t, bus[InitStackAddr-1], value16Low)
+	ExpectHexByteEq(t, s.StackPtr, InitStackPtr-2)
 }
 
 func Test_PullFromStack(t *T) {
@@ -157,8 +144,8 @@ func Test_PullFromStack(t *T) {
 		Bus:      TestBus{InitStackAddr: value},
 	}
 
-	expectHexByteEq(t, s.PullFromStack(), value)
-	expectHexByteEq(t, s.StackPtr, InitStackPtr)
+	ExpectHexByteEq(t, s.PullFromStack(), value)
+	ExpectHexByteEq(t, s.StackPtr, InitStackPtr)
 }
 
 func Test_PullTwoBytesFromStack(t *T) {
@@ -170,20 +157,28 @@ func Test_PullTwoBytesFromStack(t *T) {
 		},
 	}
 
-	expectTwoHexBytesEq(t, s.PullTwoBytesFromStack(), value16)
-	expectHexByteEq(t, s.StackPtr, InitStackPtr)
+	ExpectTwoHexBytesEq(t, s.PullTwoBytesFromStack(), value16)
+	ExpectHexByteEq(t, s.StackPtr, InitStackPtr)
+}
+
+func Test_GetCarryValue(t *T) {
+	s := State{Status: value &^ Carry}
+	ExpectEq(t, s.GetCarryValue(), 0)
+
+	s = State{Status: value | Carry}
+	ExpectEq(t, s.GetCarryValue(), 1)
 }
 
 func Test_EnableFlags(t *T) {
 	s := State{Status: Carry | Zero}
 	s.EnableFlags(Zero | Negative)
-	expectBinByteEq(t, s.Status, Carry|Zero|Negative)
+	ExpectBinByteEq(t, s.Status, Carry|Zero|Negative)
 }
 
 func Test_DisableFlags(t *T) {
 	s := State{Status: Carry | Zero}
 	s.DisableFlags(Zero | Negative)
-	expectBinByteEq(t, s.Status, Carry)
+	ExpectBinByteEq(t, s.Status, Carry)
 }
 
 func Test_UpdateZeroNegativeFlags(t *T) {
@@ -193,18 +188,38 @@ func Test_UpdateZeroNegativeFlags(t *T) {
 		statusBefore byte
 		statusAfter  byte
 	}{
+		{"Zero", 0x00, Negative, Zero},
 		{"MinPositive", 0x01, Zero | Negative, 0},
 		{"MaxPositive", 0x7f, Zero | Negative, 0}, // 127
-		{"Zero", 0x00, Negative, Zero},
-		{"MinNegative", 0xff, Zero, Negative}, // -1
-		{"MaxNegative", 0x80, Zero, Negative}, // -128
+		{"MaxNegative", 0x80, Zero, Negative},     // -128
+		{"MinNegative", 0xff, Zero, Negative},     // -1
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *T) {
 			s := State{Status: test.statusBefore}
 			s.UpdateZeroNegativeFlags(test.value)
-			expectBinByteEq(t, s.Status, test.statusAfter)
+			ExpectBinByteEq(t, s.Status, test.statusAfter)
 		})
 	}
+}
+
+func Test_UpdateRightShiftCarryFlag(t *T) {
+	s := State{Status: Carry | Zero}
+	s.UpdateRightShiftCarryFlag(value &^ 0b00000001)
+	ExpectBinByteEq(t, s.Status, Zero)
+
+	s = State{Status: Zero}
+	s.UpdateRightShiftCarryFlag(value | 0b00000001)
+	ExpectBinByteEq(t, s.Status, Zero|Carry)
+}
+
+func Test_UpdateLeftShiftCarryFlag(t *T) {
+	s := State{Status: Carry | Zero}
+	s.UpdateLeftShiftCarryFlag(value &^ 0b10000000)
+	ExpectBinByteEq(t, s.Status, Zero)
+
+	s = State{Status: Zero}
+	s.UpdateLeftShiftCarryFlag(value | 0b10000000)
+	ExpectBinByteEq(t, s.Status, Zero|Carry)
 }

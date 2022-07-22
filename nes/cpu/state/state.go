@@ -9,15 +9,16 @@ const (
 	Carry = 1 << iota
 	Zero
 	InterruptDisable
-	_
+	Decimal
 	Break
 	Unused
-	_
+	Overflow
 	Negative
+
+	initStatus = InterruptDisable | Break | Unused
 
 	resetVector  = 0xfffc
 	irqVector    = 0xfffe
-	initStatus   = InterruptDisable | Break | Unused
 	stackOffset  = 0x0100
 	initStackPtr = 0xfd
 	paramOffset  = 1
@@ -121,6 +122,14 @@ func (s *State) updateNegativeFlag(value byte) {
 	s.updateFlags(Negative, byteutil.IsNegative(value))
 }
 
+func (s *State) UpdateLeftShiftCarryFlag(value byte) {
+	s.updateFlags(Carry, byteutil.IsLeftmost(value))
+}
+
+func (s *State) UpdateRightShiftCarryFlag(value byte) {
+	s.updateFlags(Carry, byteutil.IsRightmost(value))
+}
+
 func (s *State) updateFlags(flags byte, active bool) {
 	if active {
 		s.EnableFlags(flags)
@@ -135,4 +144,8 @@ func (s *State) EnableFlags(flags byte) {
 
 func (s *State) DisableFlags(flags byte) {
 	s.Status &^= flags
+}
+
+func (s *State) GetCarryValue() byte {
+	return s.Status & Carry
 }

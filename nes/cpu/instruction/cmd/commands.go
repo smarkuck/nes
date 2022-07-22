@@ -7,13 +7,17 @@ const (
 	subroutineOffset = 1
 )
 
-type Implied = func(*State)
-type Addressed = func(_ *State, addr uint16)
+type Implied = func(*state.State)
+type Addressed = func(_ *state.State, addr uint16)
 type Relative = func(status byte) bool
 
-type State = state.State
+func ASL(s *state.State) {
+	s.UpdateLeftShiftCarryFlag(s.Accumulator)
+	s.Accumulator <<= 1
+	s.UpdateZeroNegativeFlags(s.Accumulator)
+}
 
-func BRK(s *State) {
+func BRK(s *state.State) {
 	s.ProgramCounter += breakMarkSize
 	s.PushTwoBytesOnStack(s.ProgramCounter)
 	PHP(s)
@@ -21,46 +25,129 @@ func BRK(s *State) {
 	s.LoadIRQProgram()
 }
 
-func CLC(s *State) {
+func CLC(s *state.State) {
 	s.DisableFlags(state.Carry)
 }
 
-func CLI(s *State) {
+func CLD(s *state.State) {
+	s.DisableFlags(state.Decimal)
+}
+
+func CLI(s *state.State) {
 	s.DisableFlags(state.InterruptDisable)
 }
 
-func PHA(s *State) {
+func CLV(s *state.State) {
+	s.DisableFlags(state.Overflow)
+}
+
+func DEX(s *state.State) {
+	s.RegisterX--
+	s.UpdateZeroNegativeFlags(s.RegisterX)
+}
+
+func DEY(s *state.State) {
+	s.RegisterY--
+	s.UpdateZeroNegativeFlags(s.RegisterY)
+}
+
+func INX(s *state.State) {
+	s.RegisterX++
+	s.UpdateZeroNegativeFlags(s.RegisterX)
+}
+
+func INY(s *state.State) {
+	s.RegisterY++
+	s.UpdateZeroNegativeFlags(s.RegisterY)
+}
+
+func LSR(s *state.State) {
+	s.UpdateRightShiftCarryFlag(s.Accumulator)
+	s.Accumulator >>= 1
+	s.UpdateZeroNegativeFlags(s.Accumulator)
+}
+
+func NOP(s *state.State) {}
+
+func PHA(s *state.State) {
 	s.PushOnStack(s.Accumulator)
 }
 
-func PHP(s *State) {
+func PHP(s *state.State) {
 	s.PushOnStack(s.Status)
 }
 
-func PLA(s *State) {
+func PLA(s *state.State) {
 	s.Accumulator = s.PullFromStack()
 	s.UpdateZeroNegativeFlags(s.Accumulator)
 }
 
-func PLP(s *State) {
+func PLP(s *state.State) {
 	s.Status = s.PullFromStack()
 	s.EnableFlags(state.Break | state.Unused)
 }
 
-func RTI(s *State) {
+func ROL(s *state.State) {
+	c := s.GetCarryValue()
+	s.UpdateLeftShiftCarryFlag(s.Accumulator)
+	s.Accumulator = (s.Accumulator << 1) | c
+	s.UpdateZeroNegativeFlags(s.Accumulator)
+}
+
+func ROR(s *state.State) {
+	c := s.GetCarryValue()
+	s.UpdateRightShiftCarryFlag(s.Accumulator)
+	s.Accumulator = (s.Accumulator >> 1) | c<<7
+	s.UpdateZeroNegativeFlags(s.Accumulator)
+}
+
+func RTI(s *state.State) {
 	PLP(s)
 	s.ProgramCounter = s.PullTwoBytesFromStack()
 }
 
-func RTS(s *State) {
+func RTS(s *state.State) {
 	s.ProgramCounter =
 		s.PullTwoBytesFromStack() + subroutineOffset
 }
 
-func SEC(s *State) {
+func SEC(s *state.State) {
 	s.EnableFlags(state.Carry)
 }
 
-func SEI(s *State) {
+func SED(s *state.State) {
+	s.EnableFlags(state.Decimal)
+}
+
+func SEI(s *state.State) {
 	s.EnableFlags(state.InterruptDisable)
+}
+
+func TAX(s *state.State) {
+	s.RegisterX = s.Accumulator
+	s.UpdateZeroNegativeFlags(s.RegisterX)
+}
+
+func TAY(s *state.State) {
+	s.RegisterY = s.Accumulator
+	s.UpdateZeroNegativeFlags(s.RegisterY)
+}
+
+func TSX(s *state.State) {
+	s.RegisterX = s.StackPtr
+	s.UpdateZeroNegativeFlags(s.RegisterX)
+}
+
+func TXA(s *state.State) {
+	s.Accumulator = s.RegisterX
+	s.UpdateZeroNegativeFlags(s.Accumulator)
+}
+
+func TXS(s *state.State) {
+	s.StackPtr = s.RegisterX
+}
+
+func TYA(s *state.State) {
+	s.Accumulator = s.RegisterY
+	s.UpdateZeroNegativeFlags(s.Accumulator)
 }

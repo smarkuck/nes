@@ -36,5 +36,13 @@ func ToArithmeticUint16(shift byte) uint16 {
 }
 
 func IsNegative(b byte) bool {
+	return IsLeftmost(b)
+}
+
+func IsLeftmost(b byte) bool {
 	return b&0x80 != 0
+}
+
+func IsRightmost(b byte) bool {
+	return b&0x01 != 0
 }

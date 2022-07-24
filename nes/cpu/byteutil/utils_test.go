@@ -7,6 +7,12 @@ import (
 	. "github.com/smarkuck/unittest"
 )
 
+const invalidBitFormat = "bits 0-7 are allowed, passed %v"
+
+func getInvalidBitText(value uint8) string {
+	return fmt.Sprintf(invalidBitFormat, value)
+}
+
 func Test_Formats(t *T) {
 	ExpectEq(t, fmt.Sprintf(BinByte, 11), "00001011")
 	ExpectEq(t, fmt.Sprintf(HexByte, 11), "0x0b")
@@ -37,25 +43,41 @@ func Test_IncrementLow(t *T) {
 		TwoHexBytes)
 }
 
-func Test_IsRightmost(t *T) {
-	ExpectFalse(t, IsRightmost(0b00000000))
-	ExpectFalse(t, IsRightmost(0b11111110))
-	ExpectTrue(t, IsRightmost(0b00000001))
-	ExpectTrue(t, IsRightmost(0b11111111))
+func Test_IsBit_PanicOnBitGreaterThan7(t *T) {
+	value := uint8(8)
+	text := getInvalidBitText(value)
+
+	defer ExpectPanicErrEq(t, text)
+
+	IsBit(0, value)
 }
 
-func Test_IsLeftmost(t *T) {
-	ExpectFalse(t, IsLeftmost(0b00000000))
-	ExpectFalse(t, IsLeftmost(0b01111111))
-	ExpectTrue(t, IsLeftmost(0b10000000))
-	ExpectTrue(t, IsLeftmost(0b11111111))
+func Test_IsBit(t *T) {
+	ExpectTrue(t, IsBit(0b00000100, 2))
+	ExpectFalse(t, IsBit(0b11111011, 2))
+	ExpectTrue(t, IsBit(0b00100000, 5))
+	ExpectFalse(t, IsBit(0b11011111, 5))
+}
+
+func Test_IsRightmostBit(t *T) {
+	ExpectFalse(t, IsRightmostBit(0b00000000))
+	ExpectFalse(t, IsRightmostBit(0b11111110))
+	ExpectTrue(t, IsRightmostBit(0b00000001))
+	ExpectTrue(t, IsRightmostBit(0b11111111))
+}
+
+func Test_IsLeftmostBit(t *T) {
+	ExpectFalse(t, IsLeftmostBit(0b00000000))
+	ExpectFalse(t, IsLeftmostBit(0b01111111))
+	ExpectTrue(t, IsLeftmostBit(0b10000000))
+	ExpectTrue(t, IsLeftmostBit(0b11111111))
 }
 
 func Test_IsNegative(t *T) {
 	ExpectFalse(t, IsNegative(0x00))
-	ExpectFalse(t, IsNegative(0x7f)) // 127
-	ExpectTrue(t, IsNegative(0x80))  // -128
-	ExpectTrue(t, IsNegative(0xff))  // -1
+	ExpectFalse(t, IsNegative(0x7f))
+	ExpectTrue(t, IsNegative(0x80))
+	ExpectTrue(t, IsNegative(0xff))
 }
 
 func Test_ToArithmeticUint16(t *T) {

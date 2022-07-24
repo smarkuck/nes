@@ -109,28 +109,46 @@ func (s *State) getStackAddr() uint16 {
 	return stackOffset | uint16(s.StackPtr)
 }
 
-func (s *State) UpdateZeroNegativeFlags(value byte) {
-	s.updateZeroFlag(value)
-	s.updateNegativeFlag(value)
+func (s *State) UpdateArithmeticFlags(
+	a, b byte, sum uint16) {
+	sumLo := byteutil.GetLow(sum)
+	s.UpdateZeroNegative(sumLo)
+	s.updateOverflow(a, b, sumLo)
+	s.updateCarry(sum)
 }
 
-func (s *State) updateZeroFlag(value byte) {
-	s.updateFlags(Zero, value == 0)
+func (s *State) UpdateZeroNegative(value byte) {
+	s.UpdateZero(value)
+	s.UpdateNegative(value)
 }
 
-func (s *State) updateNegativeFlag(value byte) {
-	s.updateFlags(Negative, byteutil.IsNegative(value))
+func (s *State) UpdateZero(value byte) {
+	s.UpdateFlags(Zero, value == 0)
 }
 
-func (s *State) UpdateLeftShiftCarryFlag(value byte) {
-	s.updateFlags(Carry, byteutil.IsLeftmost(value))
+func (s *State) UpdateNegative(value byte) {
+	s.UpdateFlags(Negative, byteutil.IsNegative(value))
 }
 
-func (s *State) UpdateRightShiftCarryFlag(value byte) {
-	s.updateFlags(Carry, byteutil.IsRightmost(value))
+func (s *State) updateOverflow(a, b, result byte) {
+	isSameSign := !byteutil.IsLeftmostBit(a ^ b)
+	resultSignDiffers := byteutil.IsLeftmostBit(a ^ result)
+	s.UpdateFlags(Overflow, isSameSign && resultSignDiffers)
 }
 
-func (s *State) updateFlags(flags byte, active bool) {
+func (s *State) updateCarry(value uint16) {
+	s.UpdateFlags(Carry, value > 0xff)
+}
+
+func (s *State) UpdateLeftShiftCarry(value byte) {
+	s.UpdateFlags(Carry, byteutil.IsLeftmostBit(value))
+}
+
+func (s *State) UpdateRightShiftCarry(value byte) {
+	s.UpdateFlags(Carry, byteutil.IsRightmostBit(value))
+}
+
+func (s *State) UpdateFlags(flags byte, active bool) {
 	if active {
 		s.EnableFlags(flags)
 	} else {
@@ -146,7 +164,7 @@ func (s *State) DisableFlags(flags byte) {
 	s.Status &^= flags
 }
 
-func (s *State) GetCarryValue() byte {
+func (s *State) GetCarry() uint8 {
 	return s.Status & Carry
 }
 

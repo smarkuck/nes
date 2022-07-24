@@ -415,7 +415,7 @@ func Test_RelativeMode_RtnCyclesBasedOnCmdAndPageCross(t *T) {
 	tests := []struct {
 		name   string
 		phases [2]phase
-	}{ // 0x80 -> -128, 0xff -> -1
+	}{
 		{"ShiftWithoutCross_NoShift",
 			[2]phase{{true, 0x00, 1}, {false, 0x80, 0}}},
 		{"ShiftWithCross_NoShift",

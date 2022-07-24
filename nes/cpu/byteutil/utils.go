@@ -1,9 +1,13 @@
 package byteutil
 
+import "fmt"
+
 const (
 	BinByte     = "%08b"
 	HexByte     = "%#02x"
 	TwoHexBytes = "%#04x"
+
+	invalidBitFormat = "bits 0-7 are allowed, passed %v"
 )
 
 func IsHighEqual(addr1, addr2 uint16) bool {
@@ -27,22 +31,29 @@ func Merge(hi, lo byte) uint16 {
 	return uint16(hi)<<8 + uint16(lo)
 }
 
-func ToArithmeticUint16(shift byte) uint16 {
-	s := uint16(shift)
-	if IsNegative(shift) {
-		s |= 0xff00
+func ToArithmeticUint16(b byte) uint16 {
+	r := uint16(b)
+	if IsNegative(b) {
+		r |= 0xff00
 	}
-	return s
+	return r
 }
 
 func IsNegative(b byte) bool {
-	return IsLeftmost(b)
+	return IsLeftmostBit(b)
 }
 
-func IsLeftmost(b byte) bool {
-	return b&0x80 != 0
+func IsLeftmostBit(b byte) bool {
+	return IsBit(b, 7)
 }
 
-func IsRightmost(b byte) bool {
-	return b&0x01 != 0
+func IsRightmostBit(b byte) bool {
+	return IsBit(b, 0)
+}
+
+func IsBit(b byte, bit uint8) bool {
+	if bit > 7 {
+		panic(fmt.Errorf(invalidBitFormat, bit))
+	}
+	return b&(1<<bit) != 0
 }

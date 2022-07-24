@@ -9,6 +9,9 @@ import (
 type State = state.State
 
 const (
+	pos = 0
+	neg = 0x80
+
 	address     = 0xcafe
 	value16     = 0x2f9c
 	value16High = 0x2f
@@ -161,12 +164,12 @@ func Test_PullTwoBytesFromStack(t *T) {
 	ExpectHexByteEq(t, s.StackPtr, InitStackPtr)
 }
 
-func Test_GetCarryValue(t *T) {
+func Test_GetCarry(t *T) {
 	s := State{Status: value &^ Carry}
-	ExpectEq(t, s.GetCarryValue(), 0)
+	ExpectEq(t, s.GetCarry(), 0)
 
 	s = State{Status: value | Carry}
-	ExpectEq(t, s.GetCarryValue(), 1)
+	ExpectEq(t, s.GetCarry(), 1)
 }
 
 func Test_Flags(t *T) {
@@ -204,45 +207,120 @@ func Test_DisableFlags(t *T) {
 	ExpectBinByteEq(t, s.Status, Carry)
 }
 
-func Test_UpdateZeroNegativeFlags(t *T) {
+func Test_UpdateFlags(t *T) {
+	s := State{Status: Carry | Zero}
+	s.UpdateFlags(Zero|Negative, true)
+	ExpectBinByteEq(t, s.Status, Carry|Zero|Negative)
+
+	s = State{Status: Carry | Zero}
+	s.DisableFlags(Zero | Negative)
+	ExpectBinByteEq(t, s.Status, Carry)
+}
+
+func Test_UpdateZero(t *T) {
+	s := State{Status: 0}
+	s.UpdateZero(0)
+	ExpectBinByteEq(t, s.Status, Zero)
+
+	s = State{Status: Zero}
+	s.UpdateZero(1)
+	ExpectBinByteEq(t, s.Status, 0)
+
+	s = State{Status: Zero}
+	s.UpdateZero(0xff)
+	ExpectBinByteEq(t, s.Status, 0)
+}
+
+func Test_UpdateNegative(t *T) {
+	s := State{Status: Negative}
+	s.UpdateNegative(0)
+	ExpectBinByteEq(t, s.Status, 0)
+
+	s = State{Status: Negative}
+	s.UpdateNegative(0x7f)
+	ExpectBinByteEq(t, s.Status, 0)
+
+	s = State{Status: 0}
+	s.UpdateNegative(0x80)
+	ExpectBinByteEq(t, s.Status, Negative)
+
+	s = State{Status: 0}
+	s.UpdateNegative(0xff)
+	ExpectBinByteEq(t, s.Status, Negative)
+}
+
+func Test_UpdateZeroNegative(t *T) {
 	tests := []struct {
 		name         string
 		value        byte
 		statusBefore byte
 		statusAfter  byte
 	}{
-		{"Zero", 0x00, Negative, Zero},
-		{"MinPositive", 0x01, Zero | Negative, 0},
-		{"MaxPositive", 0x7f, Zero | Negative, 0}, // 127
-		{"MaxNegative", 0x80, Zero, Negative},     // -128
-		{"MinNegative", 0xff, Zero, Negative},     // -1
+		{"Zero", 0, Negative, Zero},
+		{"MinPositive", 1, Zero | Negative, 0},
+		{"MaxPositive", 0x7f, Zero | Negative, 0},
+		{"MaxNegative", 0x80, Zero, Negative},
+		{"MinNegative", 0xff, Zero, Negative},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *T) {
 			s := State{Status: test.statusBefore}
-			s.UpdateZeroNegativeFlags(test.value)
+			s.UpdateZeroNegative(test.value)
 			ExpectBinByteEq(t, s.Status, test.statusAfter)
 		})
 	}
 }
 
-func Test_UpdateRightShiftCarryFlag(t *T) {
+func Test_UpdateRightShiftCarry(t *T) {
 	s := State{Status: Carry | Zero}
-	s.UpdateRightShiftCarryFlag(value &^ 0b00000001)
+	s.UpdateRightShiftCarry(value &^ 0b00000001)
 	ExpectBinByteEq(t, s.Status, Zero)
 
 	s = State{Status: Zero}
-	s.UpdateRightShiftCarryFlag(value | 0b00000001)
+	s.UpdateRightShiftCarry(value | 0b00000001)
 	ExpectBinByteEq(t, s.Status, Zero|Carry)
 }
 
-func Test_UpdateLeftShiftCarryFlag(t *T) {
+func Test_UpdateLeftShiftCarry(t *T) {
 	s := State{Status: Carry | Zero}
-	s.UpdateLeftShiftCarryFlag(value &^ 0b10000000)
+	s.UpdateLeftShiftCarry(value &^ 0b10000000)
 	ExpectBinByteEq(t, s.Status, Zero)
 
 	s = State{Status: Zero}
-	s.UpdateLeftShiftCarryFlag(value | 0b10000000)
+	s.UpdateLeftShiftCarry(value | 0b10000000)
 	ExpectBinByteEq(t, s.Status, Zero|Carry)
+}
+
+func Test_UpdateArithmeticFlags(t *T) {
+	tests := []struct {
+		name         string
+		a, b         byte
+		sum          uint16
+		statusBefore byte
+		statusAfter  byte
+	}{
+		{"Zero", 0, 0, 0, Negative, Zero},
+		{"MinPositive", 0, 1, 1, Zero | Negative, 0},
+		{"MaxPositive", 0, 0x7f, 0x7f, Zero | Negative, 0},
+		{"MaxNegative", 0, 0x80, 0x80, Zero, Negative},
+		{"MinNegative", 0, 0xff, 0xff, Zero, Negative},
+		{"Carry", 0, 0, 0x100, 0, Zero | Carry},
+		{"NoOverflow", pos, pos, pos, Overflow, Zero},
+		{"NoOverflow2", neg, neg, neg, Overflow, Negative},
+		{"NoOverflow3", pos, neg, pos, Overflow, Zero},
+		{"NoOverflow4", pos, neg, neg, Overflow, Negative},
+		{"NoOverflow5", neg, pos, pos, Overflow, Zero},
+		{"NoOverflow6", neg, pos, neg, Overflow, Negative},
+		{"PosOverflow", pos, pos, neg, 0, Negative | Overflow},
+		{"NegOverflow", neg, neg, pos, 0, Zero | Overflow},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *T) {
+			s := State{Status: test.statusBefore}
+			s.UpdateArithmeticFlags(test.a, test.b, test.sum)
+			ExpectBinByteEq(t, s.Status, test.statusAfter)
+		})
+	}
 }

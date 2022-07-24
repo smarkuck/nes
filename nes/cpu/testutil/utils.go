@@ -30,13 +30,13 @@ const (
 	InitStackPtr  = 0xfd
 	InitStackAddr = StackOffset | InitStackPtr
 
-	InvalidAccumulatorText    = "invalid accumulator"
-	InvalidRegisterXText      = "invalid register X"
-	InvalidRegisterYText      = "invalid register Y"
-	InvalidStatusText         = "invalid status"
-	InvalidStackPtrText       = "invalid stack pointer"
-	InvalidProgramCounterText = "invalid program counter"
-	InvalidBusText            = "invalid bus reference"
+	invalidAccumulatorText    = "invalid accumulator"
+	invalidRegisterXText      = "invalid register X"
+	invalidRegisterYText      = "invalid register Y"
+	invalidStatusText         = "invalid status"
+	invalidStackPtrText       = "invalid stack pointer"
+	invalidProgramCounterText = "invalid program counter"
+	invalidBusText            = "invalid bus reference"
 )
 
 type statePtr = *state.State
@@ -145,69 +145,82 @@ func NewState(value byte, bus nes.Bus) statePtr {
 	}
 }
 
-func ExpectBinByteEq(t test,
-	actual, expected byte, msg ...string) {
-	unittest.ExpectEqf(t, actual, expected,
-		byteutil.BinByte, msg...)
-}
-
-func ExpectHexByteEq(t test, actual, expected byte) {
-	unittest.ExpectEqf(t, actual, expected,
-		byteutil.HexByte)
-}
-
-func ExpectTwoHexBytesEq(t test, actual, expected uint16) {
-	unittest.ExpectEqf(t, actual, expected,
-		byteutil.TwoHexBytes)
-}
-
 func ExpectStateEq(t test, actual, expected statePtr) {
-	ExpectRegistersEq(t, actual, expected)
+	ExpectRegistersEqf(t, actual, expected, byteutil.HexByte)
 	ExpectStatusEq(t, actual, expected.Status)
 	ExpectStackPtrEq(t, actual, expected.StackPtr)
 	ExpectProgramCounterEq(t, actual, expected.ProgramCounter)
 	ExpectBusEq(t, actual, expected.Bus)
 }
 
-func ExpectRegistersEq(t test, actual, expected statePtr) {
-	ExpectAccumulatorEq(t, actual, expected.Accumulator)
-	ExpectRegisterXEq(t, actual, expected.RegisterX)
-	ExpectRegisterYEq(t, actual, expected.RegisterY)
+func ExpectRegistersEqf(t test,
+	actual, expected statePtr, format string) {
+	ExpectAccumulatorEqf(t,
+		actual, expected.Accumulator, format)
+	ExpectRegisterXEqf(t,
+		actual, expected.RegisterX, format)
+	ExpectRegisterYEqf(t,
+		actual, expected.RegisterY, format)
 }
 
 func ExpectAccumulatorEq(t test, s statePtr, value byte) {
+	ExpectAccumulatorEqf(t, s, value, byteutil.HexByte)
+}
+
+func ExpectAccumulatorEqf(t test,
+	s statePtr, value byte, format string) {
 	unittest.ExpectEqf(t, s.Accumulator, value,
-		byteutil.HexByte, InvalidAccumulatorText)
+		format, invalidAccumulatorText)
 }
 
-func ExpectRegisterXEq(t test, s statePtr, value byte) {
+func ExpectRegisterXEqf(t test,
+	s statePtr, value byte, format string) {
 	unittest.ExpectEqf(t, s.RegisterX, value,
-		byteutil.HexByte, InvalidRegisterXText)
+		format, invalidRegisterXText)
 }
 
-func ExpectRegisterYEq(t test, s statePtr, value byte) {
+func ExpectRegisterYEqf(t test,
+	s statePtr, value byte, format string) {
 	unittest.ExpectEqf(t, s.RegisterY, value,
-		byteutil.HexByte, InvalidRegisterYText)
+		format, invalidRegisterYText)
 }
 
 func ExpectStatusEq(t test, s statePtr, value byte) {
-	unittest.ExpectEqf(t, s.Status, value,
-		byteutil.BinByte, InvalidStatusText)
+	ExpectBinByteEq(t, s.Status, value,
+		invalidStatusText)
 }
 
 func ExpectStackPtrEq(t test, s statePtr, value byte) {
-	unittest.ExpectEqf(t, s.StackPtr, value,
-		byteutil.HexByte, InvalidStackPtrText)
+	ExpectHexByteEq(t, s.StackPtr, value,
+		invalidStackPtrText)
 }
 
 func ExpectProgramCounterEq(t test,
 	s statePtr, value uint16) {
-	unittest.ExpectEqf(t, s.ProgramCounter, value,
-		byteutil.TwoHexBytes, InvalidProgramCounterText)
+	ExpectTwoHexBytesEq(t, s.ProgramCounter, value,
+		invalidProgramCounterText)
+}
+
+func ExpectBinByteEq(t test,
+	actual, expected byte, msg ...string) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.BinByte, msg...)
+}
+
+func ExpectHexByteEq(t test,
+	actual, expected byte, msg ...string) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.HexByte, msg...)
+}
+
+func ExpectTwoHexBytesEq(t test,
+	actual, expected uint16, msg ...string) {
+	unittest.ExpectEqf(t, actual, expected,
+		byteutil.TwoHexBytes, msg...)
 }
 
 func ExpectBusEq(t test, s statePtr, value nes.Bus) {
 	p1 := fmt.Sprintf("%p", s.Bus)
 	p2 := fmt.Sprintf("%p", value)
-	unittest.ExpectEq(t, p1, p2, InvalidBusText)
+	unittest.ExpectEq(t, p1, p2, invalidBusText)
 }

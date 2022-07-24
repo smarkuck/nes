@@ -103,7 +103,7 @@ func Test_LoadIRQProgram(t *T) {
 }
 
 func Test_OnReset_ClearState_LoadProgram_KeepOldBus(t *T) {
-	bus := NewTestBusResetPrg(address, 0x00)
+	bus := NewTestBusResetPrg(address, nil)
 	s := NewState(value, bus)
 
 	s.Reset()

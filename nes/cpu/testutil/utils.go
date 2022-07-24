@@ -60,13 +60,12 @@ func (t TestBus) loadStack(s Stack) {
 	}
 }
 
-func NewTestBusResetPrg(addr uint16, code byte) TestBus {
-	return NewTestBusProgram(ResetVector,
-		Program{
-			byteutil.GetLow(addr),
-			byteutil.GetHigh(addr),
+func NewTestBusResetPrg(addr uint16, p Program) TestBus {
+	return NewTestBusProgram(addr, p,
+		Memory{
+			ResetVector:     byteutil.GetLow(addr),
+			ResetVector + 1: byteutil.GetHigh(addr),
 		},
-		Memory{addr: code},
 	)
 }
 

@@ -105,7 +105,7 @@ type cpuSuite struct {
 }
 
 func (s *cpuSuite) Setup() {
-	s.bus = NewTestBusResetPrg(resetPrgAddr, code)
+	s.bus = NewTestBusResetPrg(resetPrgAddr, Program{code})
 }
 
 func (s cpuSuite) newCPU(i Instructions) CPU {
